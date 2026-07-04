@@ -1,0 +1,16 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+# Research code is intentionally untouched; lint only the new service code.
+include = [
+    "serving/**/*.py",
+    "rag/**/*.py",
+    "evals/**/*.py",
+    "tracking/**/*.py",
+    "tests/**/*.py",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]

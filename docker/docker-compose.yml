@@ -1,0 +1,30 @@
+# Optional compose setup. The service is self-contained (embedded Chroma,
+# mock LLM), so `docker compose up` works with no other services.
+# Uncomment the ollama block to adjudicate with a real local LLM.
+services:
+  moderation:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8000:8000"
+    # Uncomment the `environment:` key together with the entries you need.
+    # environment:
+    #   # Real classifier (mount the checkpoint dir below):
+    #   - MODEL_DIR=/model
+    #   - MODEL_NAME=roberta-base
+    #   # Real LLM via Ollama:
+    #   - LLM_BASE_URL=http://ollama:11434/v1
+    #   - LLM_MODEL=llama3.1
+    # volumes:
+    #   - ../outputs/davidson/RoBERTa-base/3class:/model:ro
+
+  # ollama:
+  #   image: ollama/ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama:/root/.ollama
+
+# volumes:
+#   ollama:

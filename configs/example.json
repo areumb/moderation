@@ -1,0 +1,30 @@
+{
+  "pipeline": {
+    "seed": 5,
+    "output_directory": "",
+    "train_batch_size": 8,
+    "validation_batch_size": 8,
+    "n_epochs": 1,
+    "max_train_steps": 20,              
+    "logging_freq": 1000,               
+    "mixed_precision": "fp16"            
+  },
+  "task": {
+    "model_name": "",
+    "dataset_name": "",
+    "dataset_directory": "",
+    "num_labels": 3,
+    "train_mode": "3class"
+  },
+  "optimizer": {
+    "learning_rate": 5e-5,
+    "learning_rate_scheduler": "linear",
+    "weight_decay": 0.0,
+    "num_warmup_steps": 0
+  },
+  "processing": { "padding": false },
+  "wandb": {
+    "project_name": "hs-generalization",
+    "run_name": "testrun"
+  }
+}

@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        # sentence-transformers (and its torch dependency) is excluded in CI to
+        # keep the job fast; the service then uses its deterministic offline
+        # embedding fallback (rag/embeddings.py), which is exactly what the
+        # tests are written against. No secrets, no model weights, no network
+        # needed at test time.
+        run: |
+          grep -v '^sentence-transformers' requirements-serve.txt > /tmp/req-ci.txt
+          pip install -r /tmp/req-ci.txt -r requirements-dev.txt
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Unit and API tests (offline, stub classifier + mock LLM)
+        run: pytest -v
+
+      - name: Behavioral suite — smoke mode (HateCheck-XR pipeline check)
+        # MODEL_DIR is unset, so this verifies the eval pipeline end-to-end and
+        # publishes the report artifact. Quality thresholds are enforced only
+        # when a real model is provided via MODEL_DIR (see evals/README note).
+        run: python -m evals.run_behavioral_suite --out-dir evals/reports
+
+      - name: Upload behavioral report
+        uses: actions/upload-artifact@v4
+        with:
+          name: behavioral-report
+          path: evals/reports/

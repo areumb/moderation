@@ -1,0 +1,8 @@
+{
+  "_comment": "Per-functionality accuracy gates for HateCheck-XR, enforced in CI only when MODEL_DIR is set (real model). Values are intentionally conservative floors meant to catch regressions, not targets; calibrate them against your own measured results before relying on them.",
+  "_comment_ceilings": "The *_max keys are CEILINGS, not floors: the build fails if the directional error rate exceeds them. hateful_as_clean_max targets the dominant OOD error the thesis found (hateful content confidently misread as Clean); clean_as_hateful_max targets the reverse over-moderation direction (counterspeech/quotation/negation/homonyms misread as Hateful), which the thesis also found sizable. Where to set each ceiling is exactly the recall-vs-precision decision the thesis says a deployment must make explicitly. Placeholder values — calibrate against measured results.",
+  "default": 0.5,
+  "overall": 0.6,
+  "hateful_as_clean_max": 0.5,
+  "clean_as_hateful_max": 0.5
+}

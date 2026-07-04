@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Local artifacts of the moderation service
+.chroma/
+mlruns/
+evals/reports/
+wandb/
+
+# Trained checkpoints are large; track them outside Git (or via LFS/DVC later)
+outputs/
