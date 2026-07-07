@@ -285,9 +285,13 @@ Trained checkpoints are not committed (they are ~1.5 GB each); point
 ├─ redteam/               attack taxonomy + ASR harness + report (Module B)
 ├─ tracking/              MLflow wrapper around the unmodified evaluator
 ├─ tests/                 offline pytest suite (stub classifier + mock LLM)
+├─ third_party
 ├─ docker/                Dockerfile (+ compose reference)
 ├─ docs/                  Azure deployment steps; safety_case.md (claim/evidence/residual risk)
-└─ .github/workflows/     CI: ruff + pytest + behavioral suite (smoke)
+├─ .github/workflows/     CI: ruff + pytest + behavioral suite (smoke)
+├─ LICENSE
+└─ README.md
+
 ```
 
 ## Limitations
