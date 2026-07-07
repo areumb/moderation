@@ -317,19 +317,5 @@ Research code lineage: [Khurana et al. (2025)](https://arxiv.org/abs/2410.15911)
 Dataset: [Davidson et al. (2017)](https://github.com/t-davidson/hate-speech-and-offensive-language).
 If you use HateCheck-XR, please cite the thesis (Kim, 2025).
 
-## Copyright & License
-
-Copyright (c) 2025-2026 Areumbyeol Kim. All rights reserved. This repository is
-shared for portfolio purposes only; no license is granted to
-use, copy, modify, or distribute this code without written permission
-(see [LICENSE](LICENSE)).
-
-Exception: the research code in `hs_generalization/` includes modifications of
-[Khurana et al. (2025)](https://arxiv.org/abs/2410.15911)'s
-[defverify](https://github.com/urjakh/defverify) (used with the author's
-permission), which itself adapts
-Apache-2.0-licensed [HuggingFace Transformers example code](https://github.com/huggingface/transformers/blob/master/examples/pytorch/text-classification/run_glue_no_trainer.py);
-the original copyright and license notices are retained in the affected file
-headers (see `hs_generalization/train.py`), and the
 [Apache License 2.0](third_party/APACHE-2.0.txt) continues to apply to those
 portions only.
