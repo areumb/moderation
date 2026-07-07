@@ -64,7 +64,7 @@ marked as such.
 counts, Tier-2 rate). The API also exposes the thesis' binary label spaces
 as optional views (`mode: hate_nonhate | nonclean_clean`).
 
-## Quickstart (offline, no weights, no secrets)
+## Quickstart
 
 ```bash
 pip install -r requirements-serve.txt   # research requirements.txt unchanged
