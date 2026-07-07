@@ -20,9 +20,9 @@ ships unchanged in `hs_generalization/`; background in
 The thesis found that *where* a hate-speech classifier struggles is
 dataset-dependent, not a fixed property of the task. Set-internally,
 (Davidson: ~6% Hateful, ~77% Offensive) the dominant confusion is
-Hate → Offensive, while Clean separates easily. Set-externally,
-(HateCheck-XR, a diagnostic suite full of counterspeech, quotation, negation,
-and reclaimed/homonym slurs) the hard boundary shifts to Hate ↔ Clean, in
+Hate → Offensive, while Clean separates easily. Set-externally on
+HateCheck-XR, a diagnostic suite full of counterspeech, quotation, negation,
+and reclaimed/homonym slurs, the hard boundary shifts to Hate ↔ Clean, in
 both directions: hateful content misread as Clean, and benign mentions
 misread as Hateful. The service turns both regimes into routing rules, spending the expensive
 RAG adjudicator exactly where the research says the classifier is
