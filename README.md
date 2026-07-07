@@ -263,7 +263,7 @@ python -m hs_generalization.run_many -c configs/test/example.json --dataset hate
   --hatecheck-csv datasets/hatecheck-xr/hatecheck-xr.csv
 ```
 
-Trained checkpoints are not committed (they are ~1.5 GB each); point
+Trained checkpoints are not committed; point
 `MODEL_DIR` at your own checkpoint directory to activate the real classifier.
 
 ## Repository layout
