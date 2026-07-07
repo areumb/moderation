@@ -17,9 +17,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 
-from rag.adjudicator import AdjudicationError, Adjudicator
+from rag.adjudicator import AdjudicationError
+from rag.defenses import PromptDefense, normalize_for_classifier
 from rag.llm import get_llm
 from rag.policy_store import PolicyStore
+from rag.reasoning import make_adjudicator
 from rag.retriever import Retriever
 from serving.config import ServingConfig
 from serving.predictor import get_classifier, project
@@ -49,7 +51,14 @@ async def lifespan(app: FastAPI):
     state["cfg"] = cfg
     state["classifier"] = get_classifier()
     state["store"] = store
-    state["adjudicator"] = Adjudicator(Retriever(store, top_k=cfg.top_k), llm)
+    defense = PromptDefense() if cfg.harden_adjudicator else None
+    state["adjudicator"] = make_adjudicator(
+        Retriever(store, top_k=cfg.top_k),
+        llm,
+        strategy=cfg.adjudication_strategy,
+        samples=cfg.self_consistency_samples,
+        defense=defense,
+    )
     state["llm_name"] = llm.name
     state["stats"] = RouteStats()
     yield
@@ -84,8 +93,15 @@ def moderate(req: ModerateRequest) -> ModerateResponse:
     if len(text) > cfg.max_input_chars:
         raise HTTPException(status_code=422, detail=f"text exceeds {cfg.max_input_chars} characters")
 
-    # Tier 1
-    clf_out = state["classifier"].predict(text)
+    # Tier 1 — optionally canonicalise obfuscation (spacing/leet/homoglyphs)
+    # before lexical classification (Module B, tier1_evasion defense). Only the
+    # classifier sees the normalised form; the original text is what is stored,
+    # adjudicated, and returned.
+    if cfg.normalize_tier1:
+        clf_text, normalization_applied = normalize_for_classifier(text)
+    else:
+        clf_text, normalization_applied = text, []
+    clf_out = state["classifier"].predict(clf_text)
     projected = project(clf_out["probs"], req.mode) if req.mode != "3class" else None
 
     # Router: risk triggers first; otherwise a deterministic audit sample of
@@ -118,6 +134,7 @@ def moderate(req: ModerateRequest) -> ModerateResponse:
             )
         else:
             by_id = {c["clause_id"]: c for c in verdict["retrieved"]}
+            integrity = verdict.get("integrity")
             decision = Decision(
                 final_label=verdict["final_label"],
                 route=route,
@@ -127,12 +144,22 @@ def moderate(req: ModerateRequest) -> ModerateResponse:
                 ],
                 rationale=verdict["rationale"],
                 adjudicator=state["llm_name"],
+                strategy=verdict.get("strategy"),
+                reasoning=verdict.get("reasoning", []),
+                votes=verdict.get("votes"),
+                integrity=integrity,
+                attack_markers=(integrity or {}).get("attack_markers", []),
             )
 
     state["stats"].record(decision.route, decision.escalation_reasons)
     return ModerateResponse(
         text=req.text,
-        classifier=ClassifierOutput(**clf_out, projected=projected, engine=state["classifier"].name),
+        classifier=ClassifierOutput(
+            **clf_out,
+            projected=projected,
+            engine=state["classifier"].name,
+            tier1_normalization=normalization_applied,
+        ),
         decision=decision,
     )
 

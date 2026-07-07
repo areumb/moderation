@@ -1,10 +1,17 @@
 {
-  "conf_threshold": 0.70,
+  "conf_threshold": 0.7,
   "margin_threshold": 0.15,
-  "margin_applies_above": 0.20,
-  "escalate_labels": ["Hateful", "Offensive"],
+  "margin_applies_above": 0.2,
+  "escalate_labels": [
+    "Hateful",
+    "Offensive"
+  ],
+  "adjudication_strategy": "direct",
+  "self_consistency_samples": 5,
+  "harden_adjudicator": false,
+  "normalize_tier1": false,
   "audit_rate": 0.02,
-  "top_k": 3,
+  "top_k": 6,
   "policy_path": "policies/community_guidelines.md",
   "chroma_dir": ".chroma",
   "collection_name": "community_guidelines",

@@ -7,6 +7,7 @@ __pycache__/
 .chroma/
 mlruns/
 evals/reports/
+redteam/reports/
 wandb/
 
 # Trained checkpoints are large; track them outside Git (or via LFS/DVC later)

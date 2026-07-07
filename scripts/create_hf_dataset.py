@@ -4,25 +4,11 @@ import re
 from collections import Counter
 from pathlib import Path
 from typing import List
+
 import click
 import emoji
 import pandas as pd
 from datasets import DatasetDict, load_dataset, Dataset, concatenate_datasets
-import json
-from pathlib import Path
-from typing import Callable, Tuple, Dict, Union, Any
-
-import numpy as np
-import seaborn
-import torch
-from datasets import load_dataset, load_from_disk, ClassLabel
-from matplotlib import pyplot as plt
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import _LRScheduler
-from transformers import AutoTokenizer
-
-DATASET_SPLITS = ["train", "validation", "test"]
-TOKENIZE_COLUMNS = ["input_ids", "attention_mask", "labels"]
 
 dataset_to_input_output = {
     "davidson": {
@@ -98,7 +84,7 @@ class HFDatasetCreator:
             dataset = concatenate_datasets(datasets)
             self.dataset = DatasetDict({"train": dataset})
         elif self.dataset_name == "founta":
-            dataset = pd.read_csv(self.dataset_file, delimiter=r"\s{2,}|\t")
+            dataset = pd.read_csv(self.dataset_file, delimiter=r"\s{2,}|\t", engine="python")
             dataset = Dataset.from_pandas(dataset)
             self.dataset = DatasetDict({"train": dataset})
         else:

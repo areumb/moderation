@@ -8,7 +8,7 @@ checkpoint) becomes one tracked, comparable run.
 
 Example:
     python -m tracking.mlflow_eval \
-        -c configs/test/test.json \
+        -c configs/test/example.json \
         --dataset davidson --eval-mode 3class --train-mode 3class \
         --seed 5 --checkpoint outputs/davidson/RoBERTa-base/3class/seed5_RoBERTa-base_7.pt \
         --variant ternary

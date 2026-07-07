@@ -85,5 +85,11 @@ def projection_for(train_mode: Mode, eval_mode: Mode) -> Callable[[torch.Tensor]
         # hate->0 (non-clean), clean->1 (clean) is already aligned
         return lambda logits: logits.argmax(dim=-1)
 
-    # Other cross-projections were not used in my experiments; default to argmax.
-    return lambda logits: logits.argmax(dim=-1)
+    # Other cross-projections (e.g. a binary model evaluated on the 3-class task) are not
+    # well-defined: the model cannot produce labels outside its training space. Raising here
+    # prevents silently reporting invalid results.
+    raise ValueError(
+        f"Projection from train_mode='{train_mode.value}' to eval_mode='{eval_mode.value}' is not supported. "
+        f"Supported: identical modes, 3class->any binary mode, hate_clean->hate_nonhate, "
+        f"and hate_clean->nonclean_clean."
+    )

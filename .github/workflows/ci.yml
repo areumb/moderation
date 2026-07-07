@@ -37,8 +37,28 @@ jobs:
         # when a real model is provided via MODEL_DIR (see evals/README note).
         run: python -m evals.run_behavioral_suite --out-dir evals/reports
 
+      - name: CoT strategy evaluation — smoke (Module A)
+        # direct vs cot vs self-consistency + faithfulness metrics on the masked
+        # probe set, with the deterministic MockLLM. Real numbers need LLM_BASE_URL.
+        env:
+          CHROMA_DIR: ${{ runner.temp }}/chroma
+        run: python -m evals.run_cot_eval --out-dir evals/reports
+
+      - name: Red-team harness — smoke, gated (Module B)
+        # ASR before/after the defenses; --gate fails the build if the
+        # after-defense ASR regresses past redteam/thresholds.json (deterministic).
+        env:
+          CHROMA_DIR: ${{ runner.temp }}/chroma
+        run: python -m redteam.run_redteam --gate --out-dir redteam/reports
+
       - name: Upload behavioral report
         uses: actions/upload-artifact@v4
         with:
           name: behavioral-report
           path: evals/reports/
+
+      - name: Upload red-team report
+        uses: actions/upload-artifact@v4
+        with:
+          name: redteam-report
+          path: redteam/reports/

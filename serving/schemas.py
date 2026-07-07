@@ -24,6 +24,10 @@ class ClassifierOutput(BaseModel):
     confidence: float
     projected: Optional[dict] = None
     engine: str = Field(description="'hf' for the real fine-tuned model, 'stub' for the offline stub.")
+    # Module B (tier1_evasion defense): transforms that changed the classifier's
+    # input when NORMALIZE_TIER1 is on (strip_zero_width / homoglyph_fold /
+    # de_leet / despace). A non-empty list is itself a cheap obfuscation signal.
+    tier1_normalization: list[str] = []
 
 
 class PolicyCitation(BaseModel):
@@ -43,6 +47,13 @@ class Decision(BaseModel):
     adjudicator: Optional[str] = Field(
         None, description="'mock' or the configured LLM model name; null on the auto route."
     )
+    # Module A: chain-of-thought reasoning surfaced for auditability.
+    strategy: Optional[str] = None
+    reasoning: list[str] = []
+    votes: Optional[dict] = None
+    # Module B: verdict integrity check + detected attack markers (hardened mode).
+    integrity: Optional[dict] = None
+    attack_markers: list[str] = []
 
 
 class ModerateResponse(BaseModel):

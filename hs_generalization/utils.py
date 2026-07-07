@@ -101,11 +101,10 @@ def get_dataset(
         )
 
     dataset = dataset.rename_column(dataset_to_input_output[dataset_name]["output"], "labels")
-    cols_to_remove = dataset[list(dataset.keys())[0]].column_names
-    cols_to_remove.remove("input_ids")
-    cols_to_remove.remove("attention_mask")
-    cols_to_remove.remove("labels")
-    dataset.remove_columns(cols_to_remove)
+    cols_to_remove = [
+        col for col in dataset[list(dataset.keys())[0]].column_names if col not in TOKENIZE_COLUMNS
+    ]
+    dataset = dataset.remove_columns(cols_to_remove)
 
     if dataset_name == "talat_hovy":
         dataset = dataset.cast_column("labels", ClassLabel(names=["sexism", "racism", "neither"]))
@@ -157,7 +156,8 @@ def save_model(
         scheduler: _LRScheduler,
         epoch: int,
         folder: str,
-        model_name: str
+        model_name: str,
+        seed: int = None,
 ) -> None:
     """Function that saves a model, optimizer, scheduler, and which epoch the training is at.
 
@@ -171,8 +171,11 @@ def save_model(
         epoch (int): Epoch where training is right now.
         folder (str): Path to the folder where the model should be saved.
         model_name (str): Name of the model.
+        seed (int, optional): Training seed. If given, checkpoints are named "seed{seed}_{model_name}_{epoch}.pt"
+            to match the naming convention expected by run_many.py.
     """
-    filename = Path(folder) / f"{model_name}_{str(epoch)}.pt"
+    prefix = f"seed{seed}_" if seed is not None else ""
+    filename = Path(folder) / f"{prefix}{model_name}_{str(epoch)}.pt"
     Path(folder).mkdir(parents=True, exist_ok=True)
 
     checkpoint = {

@@ -1,0 +1,8 @@
+# Normalise line endings so cross-platform checkouts don't produce
+# whole-file CRLF/LF diffs (the research code and datasets must diff cleanly).
+# After adding/changing this file, run once:  git add --renormalize .
+* text=auto eol=lf
+*.bat text eol=crlf
+*.png binary
+*.pt binary
+*.sqlite3 binary

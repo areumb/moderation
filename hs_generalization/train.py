@@ -34,8 +34,14 @@ from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
-from transformers import AdamW, AutoModelForSequenceClassification
+from transformers import AutoModelForSequenceClassification
 from transformers import set_seed, default_data_collator, DataCollatorWithPadding, get_scheduler
+
+try:
+    # transformers.AdamW (used for the thesis experiments; removed in newer transformers versions).
+    from transformers import AdamW
+except ImportError:  # pragma: no cover
+    from torch.optim import AdamW
 
 from hs_generalization.modes import Mode, apply_train_scheme, num_labels_for
 from hs_generalization.utils import get_dataset, load_config, save_model, load_model
@@ -115,7 +121,13 @@ class BestEpoch:
             self.best_epoch = epoch
 
 
-def get_optimizer(model: Any, learning_rate: float, weight_decay: float) -> Optimizer:
+def get_optimizer(
+        model: Any,
+        learning_rate: float,
+        weight_decay: float,
+        betas: Tuple[float, float] = (0.9, 0.98),
+        eps: float = 1e-6,
+) -> Optimizer:
     """Function that returns the optimizer for training.
 
     Given the model, learning rate, and weight decay, this function returns the optimizer that can be used while
@@ -126,6 +138,8 @@ def get_optimizer(model: Any, learning_rate: float, weight_decay: float) -> Opti
         model (torch.nn.module): Model used for training.
         learning_rate (float): Float that indicates the learning rate.
         weight_decay (float): Float that indicates the weight decay.
+        betas (Tuple[float, float]): Adam (beta1, beta2). Defaults follow the thesis setup (0.9, 0.98).
+        eps (float): Adam epsilon. Default follows the thesis setup (1e-6).
 
     Returns:
         optimizer (Optimizer): optimizer for the training.
@@ -142,7 +156,7 @@ def get_optimizer(model: Any, learning_rate: float, weight_decay: float) -> Opti
             "weight_decay": 0.0,
         },
     ]
-    optimizer = AdamW(optimizer_grouped_parameters, lr=learning_rate)
+    optimizer = AdamW(optimizer_grouped_parameters, lr=learning_rate, betas=betas, eps=eps)
 
     return optimizer
 
@@ -175,7 +189,7 @@ def get_dataloader(
     dataloader = DataLoader(dataset, shuffle=shuffle, collate_fn=data_collator, batch_size=batch_size,)
                    # num_workers=8, pin_memory=True) #added by AK
 
-                            
+
     return dataloader
 
 
@@ -204,7 +218,7 @@ def train(
         metric (Metric): Metric that is being tracked.
         logging_freq (int): Frequency of logging the training metrics.
         max_steps (int): Maximum amount of steps to be taken during this epoch.
-        device (str): Device on which training will be done.
+        accelerator (Accelerator): Accelerator that handles device placement and mixed precision.
     """
     model.train()
     logging.info(f" Start training epoch {epoch}")
@@ -213,10 +227,6 @@ def train(
     losses = []
     for step, batch in enumerate(tqdm(dataloader)):
         with accelerator.accumulate(model):
-            if step < 5:
-                print(batch["input_ids"][0])
-                print(dataloader.collate_fn.tokenizer.batch_decode(batch["input_ids"])[0])
-
             outputs = model(batch["input_ids"], attention_mask=batch["attention_mask"], labels=batch["labels"])
             loss = outputs.loss
             accelerator.backward(loss)
@@ -261,9 +271,7 @@ def validate(
         epoch: int,
         dataloader: DataLoader,
         metric: Metric,
-        max_steps: int,
-        device: str,
-) -> Tuple[np.float_, float]:
+) -> Tuple[float, dict]:
     """Function that performs all the steps during the validation/evaluation phase.
 
     In this function, the entire evaluation phase of an epoch is run. Looping over the dataloader, each batch is fed
@@ -274,12 +282,10 @@ def validate(
         epoch (int): Current epoch of experiment.
         dataloader (DataLoader): Object that will load the training data.
         metric (Metric): Metric that is being tracked.
-        max_steps (int): Maximum amount of steps to be taken during this epoch.
-        device (str): Device on which training will be done.
 
     Returns:
         eval_loss (float): Average loss over the whole validation set.
-        eval_score (float): Average score over the whole validation set.
+        eval_score (dict): Average metrics over the whole validation set.
     """
     model.eval()
 
@@ -290,20 +296,11 @@ def validate(
         logger.info(" Starting Evaluation")
         losses = []
         for step, batch in enumerate(tqdm(dataloader)):
-
-            if step < 5:
-                print(batch["input_ids"][0])
-                print(dataloader.collate_fn.tokenizer.batch_decode(batch["input_ids"])[0])
-
             outputs = model(batch["input_ids"], attention_mask=batch["attention_mask"], labels=batch["labels"])
             predictions = torch.cat([predictions, outputs.logits.argmax(dim=-1).to("cpu")])
             references = torch.cat([references, batch["labels"].to("cpu")])
 
             losses.append(outputs.loss.detach().cpu().numpy())
-            current_step = (epoch * len(dataloader)) + step
-
-            if current_step == max_steps - 1:
-                break
 
     eval_loss = np.mean(losses)
     score_micro = metric.compute(predictions=predictions, references=references, average="micro")
@@ -332,8 +329,9 @@ def main(config_path):
     """
     config = load_config(config_path)
 
-    # Initialize Weights & Biases.
-    wandb.init(config=config, project=config["wandb"]["project_name"], name=config["wandb"]["run_name"], mode="disabled") #you can remove mode
+    # Initialize Weights & Biases. Mode can be set in the config ("disabled", "offline", or "online").
+    wandb.init(config=config, project=config["wandb"]["project_name"], name=config["wandb"]["run_name"],
+               mode=config["wandb"].get("mode", "disabled"))
 
     # Set seeds for reproducibility.
     set_seed(config["pipeline"]["seed"])
@@ -365,22 +363,11 @@ def main(config_path):
         dataset_directory=dataset_directory,
     )
 
-
-
-
     # read optional train mode from config, else it follows the default
     train_mode_str = config["task"].get("train_mode", "3class")  # read from JSON, default=3class. Choose one from "3class","hate_nonhate","nonclean_clean","hate_clean"
     train_mode = Mode(train_mode_str)
 
-    dataset = apply_train_scheme(dataset, train_mode) 
-
-    # when creating the model head, ensure the right number of labels
-    model = AutoModelForSequenceClassification.from_pretrained(
-        model_name, num_labels=num_labels_for(train_mode)
-    )
-
-
-
+    dataset = apply_train_scheme(dataset, train_mode)
 
     train_dataset = dataset["train"]
     validation_dataset = dataset["val"]
@@ -388,9 +375,6 @@ def main(config_path):
     validation_batch_size = config["pipeline"]["validation_batch_size"]
     train_dataloader = get_dataloader(train_dataset, tokenizer, train_batch_size, padding, shuffle=True)
     validation_dataloader = get_dataloader(validation_dataset, tokenizer, validation_batch_size, padding)
-
-
-
 
     # Set amount of training steps.
     num_update_steps_per_epoch = len(train_dataloader)
@@ -405,8 +389,15 @@ def main(config_path):
     metric = evaluate.combine(["accuracy", "f1", "precision", "recall"])
     # Since evaluate.compute cannot handle extra arguments (e.g. average), override with own function that allows.
     metric.compute = functools.partial(combine_compute, metric)
-    model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=config["task"]["num_labels"])
-    optimizer = get_optimizer(model, config["optimizer"]["learning_rate"], config["optimizer"]["weight_decay"])
+    # The size of the classification head follows the training mode (3 labels for 3class, 2 for the binary modes).
+    model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=num_labels_for(train_mode))
+    optimizer = get_optimizer(
+        model,
+        config["optimizer"]["learning_rate"],
+        config["optimizer"]["weight_decay"],
+        betas=(config["optimizer"].get("adam_beta1", 0.9), config["optimizer"].get("adam_beta2", 0.98)),
+        eps=config["optimizer"].get("adam_epsilon", 1e-6),
+    )
 
     lr_scheduler = get_scheduler(
         name=config["optimizer"]["learning_rate_scheduler"],
@@ -466,14 +457,13 @@ def main(config_path):
             epoch,
             validation_dataloader,
             metric,
-            max_train_steps,
-            device,
         )
 
         print("\n")
 
         save_model(
-            model, optimizer, lr_scheduler, epoch, config["pipeline"]["output_directory"], model_name
+            accelerator.unwrap_model(model), optimizer, lr_scheduler, epoch,
+            config["pipeline"]["output_directory"], model_name, seed=config["pipeline"]["seed"],
         )
         tracker.update(eval_loss, eval_score, epoch)
 
@@ -481,6 +471,7 @@ def main(config_path):
         f"Best performance was during epoch {tracker.best_epoch}, with a loss of {tracker.best_loss}, "
         f"and score of {tracker.best_score}"
     )
+    wandb.finish()
 
 
 if __name__ == "__main__":

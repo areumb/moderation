@@ -2,20 +2,31 @@ import glob
 import subprocess
 import sys
 from typing import List
-from pathlib import Path 
+
 import click
-REPO_ROOT = Path(__file__).resolve().parents[1]
-#Edit as needed
+
+
+def parse_seeds(ctx, param, value: str) -> List[int]:
+    """Parse a comma- and/or space-separated list of seeds, e.g. "5,11,42" or "5 11 42"."""
+    try:
+        seeds = [int(s) for s in value.replace(",", " ").split()]
+    except ValueError:
+        raise click.BadParameter(f"Could not parse seeds from {value!r}; expected e.g. 5,11,42")
+    if not seeds:
+        raise click.BadParameter("At least one seed is required.")
+    return seeds
+
+
 @click.command(context_settings=dict(show_default=True))
 @click.option("-c", "--config", "config_path", required=True, type=str)
 @click.option("--dataset", type=click.Choice(["davidson", "hatecheck_xr"]), default="davidson")
 @click.option("--eval-mode", required=True, type=click.Choice(["3class", "hate_nonhate", "nonclean_clean", "hate_clean"]))
 @click.option("--train-mode", required=True, type=click.Choice(["3class", "hate_nonhate", "nonclean_clean", "hate_clean"]))
-@click.option("--seeds", multiple=True, required=True, type=int,
-              help="One or more seeds. Example: --seeds 5 11 42 100 2021")
+@click.option("--seeds", required=True, callback=parse_seeds,
+              help='Comma- or space-separated seeds. Example: --seeds 5,11,42 or --seeds "5 11 42"')
 @click.option("--ckpt-pattern", required=True,
-              help="Glob with {seed} placeholder, e.g. outputs/davidson/RoBERTa-base/hate-clean/best/seed{seed}_*.pt") #assuming you are choosing the best checkpoints.
-@click.option("--hatecheck-csv", default="dataset/extended_hatecheck/reannotation.csv",
+              help="Glob with {seed} placeholder, e.g. outputs/davidson/RoBERTa-base/3class/seed{seed}_*.pt") #assuming you are choosing the best checkpoints.
+@click.option("--hatecheck-csv", default="datasets/hatecheck-xr/hatecheck-xr.csv",
               help="Used only if --dataset hatecheck_xr")
 
 def main(config_path: str, dataset: str, eval_mode: str, train_mode: str,

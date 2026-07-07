@@ -1,0 +1,19 @@
+{
+  "pipeline": {
+    "seed": "{seed}",
+    "batch_size": 16,
+    "output_predictions": "outputs/davidson/RoBERTa-base/3class/preds/eval_seed{seed}.json"
+  },
+  "task": {
+    "model_name": "roberta-base",
+    "dataset_name": "davidson",
+    "dataset_directory": "datasets/davidson",
+    "checkpoint": "outputs/davidson/RoBERTa-base/3class/seed{seed}_RoBERTa-base_7.pt"
+  },
+  "processing": { "padding": false },
+  "wandb": {
+    "project_name": "hs-generalization",
+    "run_name": "eval_seed{seed}",
+    "mode": "disabled"
+  }
+}

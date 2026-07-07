@@ -11,15 +11,15 @@ import numpy as np
 import torch
 import wandb
 from accelerate import Accelerator
-from datasets import Metric, load_dataset
+from datasets import load_dataset
 from sklearn.metrics import confusion_matrix
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from transformers import set_seed, AutoModelForSequenceClassification, AutoTokenizer
 
 from hs_generalization.train import get_dataloader, combine_compute
-from hs_generalization.modes import Mode, apply_train_scheme, num_labels_for, apply_eval_scheme, projection_for
-from hs_generalization.utils import get_dataset, load_config, save_model, load_model
+from hs_generalization.modes import Mode, num_labels_for, apply_eval_scheme, projection_for
+from hs_generalization.utils import get_dataset, load_config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("root")
@@ -28,10 +28,11 @@ logger = logging.getLogger("root")
 def evaluate_loop(
     model: Any,
     dataloader: DataLoader,
-    metric: Metric,
+    metric: Any,
     device: str,
     project_logits_to_eval,  # Callable: logits -> predicted eval labels
-) -> Tuple[np.float_, Dict, Any, Any, Any, Any]:
+    compute_loss: bool = True,
+) -> Tuple[float, Dict, Any, Any, Any, Any]:
     model.eval()
 
     preds = torch.tensor([], dtype=torch.long)
@@ -43,8 +44,10 @@ def evaluate_loop(
         for _, batch in enumerate(tqdm(dataloader)):
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
-            labels = batch["labels"].to(device)
 
+            # The loss is only meaningful (and only safe to compute) when the reference labels
+            # live in the same label space the model was trained on.
+            labels = batch["labels"].to(device) if compute_loss else None
             outputs = model(input_ids, attention_mask=attention_mask, labels=labels)
             y_hat_eval = project_logits_to_eval(outputs.logits)
 
@@ -52,9 +55,10 @@ def evaluate_loop(
             refs = torch.cat([refs, batch["labels"].to("cpu")])
             confs = torch.cat([confs, outputs.logits.softmax(dim=-1).to("cpu")])
 
-            losses.append(outputs.loss.detach().cpu().numpy())
+            if compute_loss:
+                losses.append(outputs.loss.detach().cpu().numpy())
 
-    eval_loss = float(np.mean(losses))
+    eval_loss = float(np.mean(losses)) if losses else float("nan")
     score_micro = metric.compute(predictions=preds, references=refs, average="micro")
     score_macro = metric.compute(predictions=preds, references=refs, average="macro")
     metrics_micro = {f"eval_micro_{k}": v for k, v in score_micro.items()}
@@ -77,7 +81,7 @@ def evaluate_loop(
               help="Label space the checkpoint was trained on (used to project logits).")
 @click.option("--seed", type=int, default=None, help="Seed; expands any {seed} placeholders in config.")
 @click.option("--checkpoint", type=str, default=None, help="Override checkpoint path.")
-@click.option("--hatecheck-csv", type=str, default="dataset/hatecheck/hatecheck-xr.csv",
+@click.option("--hatecheck-csv", type=str, default="datasets/hatecheck-xr/hatecheck-xr.csv",
               help="Only used with --dataset hatecheck_xr.")
 def main(config_path: str, dataset: str, eval_mode: str, train_mode: str,
          seed: int | None, checkpoint: str | None, hatecheck_csv: str):
@@ -86,24 +90,28 @@ def main(config_path: str, dataset: str, eval_mode: str, train_mode: str,
     """
     config = load_config(config_path)
 
-    # Seed + path placeholders 
+    # Seed + path placeholders (only formats keys that are present in the config).
     if seed is not None:
-        for dotted in [
-            "pipeline.seed", "task.checkpoint",
-            "pipeline.output_predictions", "wandb.run_name"
+        for top, key in [
+            ("pipeline", "seed"), ("task", "checkpoint"),
+            ("pipeline", "output_predictions"), ("wandb", "run_name"),
         ]:
-            top, key = dotted.split(".")
-            config[top][key] = str(config[top][key]).format(seed=seed)
-        config["pipeline"]["seed"] = int(config["pipeline"]["seed"])
+            if top in config and key in config[top]:
+                config[top][key] = str(config[top][key]).format(seed=seed)
+        config["pipeline"]["seed"] = int(config["pipeline"].get("seed", seed))
 
     if checkpoint is not None:
         config["task"]["checkpoint"] = checkpoint
 
+    if "{seed}" in str(config["pipeline"].get("seed", "")) or "{seed}" in str(config["task"].get("checkpoint", "")):
+        raise click.UsageError("The config contains '{seed}' placeholders; pass --seed to expand them.")
+
     # Init reproducibility and logging
+    config["pipeline"]["seed"] = int(config["pipeline"]["seed"])
     set_seed(config["pipeline"]["seed"])
     torch.backends.cudnn.deterministic = True
     wandb.init(config=config, project=config["wandb"]["project_name"], name=config["wandb"]["run_name"],
-               mode="offline")
+               mode=config["wandb"].get("mode", "disabled"))
 
     accelerator = Accelerator()
     device = config["pipeline"].get("device", accelerator.device)
@@ -172,7 +180,7 @@ def main(config_path: str, dataset: str, eval_mode: str, train_mode: str,
     project_logits = projection_for(Mode(train_mode), Mode(eval_mode))
     logger.info(f"Device: {device}. Starting evaluation on '{dataset}' with eval_mode={eval_mode}, train_mode={train_mode}")
     eval_loss, metrics, predictions, cm, confidences, references = evaluate_loop(
-        model, dataloader, metric, device, project_logits
+        model, dataloader, metric, device, project_logits, compute_loss=(train_mode == eval_mode)
     )
     logger.info(f"Average Loss: {eval_loss}, Metrics: {metrics}")
 

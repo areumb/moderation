@@ -9,6 +9,7 @@ include = [
     "rag/**/*.py",
     "evals/**/*.py",
     "tracking/**/*.py",
+    "redteam/**/*.py",
     "tests/**/*.py",
 ]
 
