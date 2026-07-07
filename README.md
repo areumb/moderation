@@ -319,8 +319,8 @@ If you use HateCheck-XR, please cite the thesis (Kim, 2025).
 
 ## Copyright & License
 
-Copyright (c) 2025-2026 Areum Kim. All rights reserved. This repository is
-shared for portfolio and evaluation purposes only; no license is granted to
+Copyright (c) 2025-2026 Areumbyeol Kim. All rights reserved. This repository is
+shared for portfolio purposes only; no license is granted to
 use, copy, modify, or distribute this code without written permission
 (see [LICENSE](LICENSE)).
 
