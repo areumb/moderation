@@ -18,9 +18,9 @@ ships unchanged in `hs_generalization/`; background in
 ## Concept
 
 The thesis found that *where* a hate-speech classifier struggles is
-dataset-dependent, not a fixed property of the task. In-distribution
+dataset-dependent, not a fixed property of the task. Set-internally,
 (Davidson: ~6% Hateful, ~77% Offensive) the dominant confusion is
-Hate → Offensive, while Clean separates easily. Out of distribution
+Hate → Offensive, while Clean separates easily. Set-externally,
 (HateCheck-XR, a diagnostic suite full of counterspeech, quotation, negation,
 and reclaimed/homonym slurs) the hard boundary shifts to Hate ↔ Clean, in
 both directions: hateful content misread as Clean, and benign mentions
@@ -28,7 +28,7 @@ misread as Hateful. The service turns both regimes into routing rules, spending 
 RAG adjudicator exactly where the research says the classifier is
 unreliable:
 
-- the Offensive/Hateful margin trigger covers the in-distribution confusion;
+- the Offensive/Hateful margin trigger covers the set-internal confusion;
 - escalating every non-Clean label routes the Clean → Hate false positives to
   Tier 2, where the adjudicator can overturn them against the allowed-content
   clauses (counterspeech CL-2, negation CL-4, homonyms CL-5);
@@ -70,7 +70,7 @@ retraining. The bundled policy is synthetic and clearly marked as such.
 Two research-motivated details in the router (`serving/router.py`):
 
 - **Audit sampling.** The thesis' HateCheck-XR results show the dominant
-  out-of-distribution error is hateful content *confidently* misclassified as
+  set-external error is hateful content *confidently* misclassified as
   Clean — invisible to every probability-based trigger. So a deterministic
   sample of the auto-approved bucket (SHA-256 of the text, `audit_rate`,
   default 2%) is sent to Tier 2 anyway, with `route: "audit"` in the response.
