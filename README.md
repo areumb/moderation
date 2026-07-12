@@ -247,5 +247,7 @@ Research code lineage:
 [Khurana et al. (2025)](https://arxiv.org/abs/2410.15911)
 ([defverify](https://github.com/urjakh/defverify)). Diagnostic suite:
 [HateCheck (Röttger et al., 2021)](https://aclanthology.org/2021.acl-long.4/).
+
 Dataset: [Davidson et al. (2017)](https://github.com/t-davidson/hate-speech-and-offensive-language).
+
 If you use HateCheck-XR, please cite the thesis (Kim, 2025).
